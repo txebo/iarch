@@ -52,6 +52,5 @@ podman-docker
 nftables
 
 # VM / soporte extra
-hyperv-daemons
 sudo
 wireguard-tools
