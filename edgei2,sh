@@ -1,0 +1,8 @@
+# B1) Red OK
+ip a show lan0
+ip route
+ping -c2 10.99.64.1
+curl -I http://example.com || true
+
+# B2) Confirma linger (queda activo por el archivo creado)
+loginctl show-user edge | grep Linger   # deberia decir "yes"
