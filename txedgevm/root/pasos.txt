@@ -1,0 +1,15 @@
+# Paso 2.1 — IP estática y prueba de red  /root/01_net.sh:
+
+sudo bash /root/01_net.sh
+
+# Paso 2.2 — Verificación de firewall y sysctl  /root/02_firewall_check.sh:
+
+sudo bash /root/02_firewall_check.sh
+
+# Paso 2.3 — Endurecer SSH adicional (opcional pero recomendado)   /root/03_ssh_hardening.sh:
+
+sudo bash /root/03_ssh_hardening.sh
+
+# Paso 2.4 — Traefik en Podman (reverse proxy)   /root/10_traefik.sh (crea estructura, archivos y levanta):
+
+sudo bash /root/10_traefik.sh

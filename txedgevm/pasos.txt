@@ -1,0 +1,30 @@
+# Instalacion automatica
+archinstall --config /root/user_configuration.json --creds /root/user_credentials.json
+
+# Primer arranque (login con tu usuario admin)
+# 1) Verifica red (ya viene configurada por NetworkManager):
+ip a
+ping -c2 10.99.64.1 || true
+
+# 2) Dispara automontaje y verifica el SMB del host Windows (//10.99.64.1/stash)
+ls -la /srv/media/stash
+mount | grep /srv/media/stash || echo "Automount pending, access path to trigger"
+
+# 3) Firewall (opcional: pasa puertos adicionales si agregas servicios)
+sudo bash /root/02_firewall_backend.sh "9999,8081"
+
+# 4) Servicios backend (Stash + Downloads). Stash usara /data -> /srv/media/stash (SMB)
+sudo bash /root/10_backend_services.sh
+
+# 5) Pruebas rapidas
+curl -I http://10.99.64.10:9999 || true
+curl -I http://10.99.64.10:8081 || true
+
+# 6) Registro: confirma que el USB SMB se ve en el host y dentro del contenedor
+ls -la /srv/media/stash | head
+podman exec stash bash -lc 'ls -la /data | head'
+
+
+comm -23 <(printf '%s\n' "${packages[@]}" | sort) <(pacman -Slq | sort)
+
+

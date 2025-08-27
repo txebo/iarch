@@ -1,0 +1,96 @@
+{
+  "archinstall-language": "English",
+  "version": "3.0.9",
+  "hostname": "txbkendvm",
+  "bootloader": "Systemd-boot",
+  "kernels": ["linux-lts"],
+  "swap": true,
+  "ntp": true,
+  "timezone": "America/Monterrey",
+  "locale_config": {
+    "kb_layout": "es",
+    "sys_lang": "en_US.UTF-8",
+    "sys_enc": "UTF-8"
+  },
+  "disk_config": {
+    "config_type": "default_layout",
+    "device_modifications": [
+      {
+        "device": "/dev/sda",
+        "wipe": true,
+        "partitions": [
+          {
+            "status": "create",
+            "type": "primary",
+            "fs_type": "fat32",
+            "flags": ["boot", "esp"],
+            "mountpoint": "/boot",
+            "size": "1GiB",
+            "start": "1MiB"
+          },
+          {
+            "status": "create",
+            "type": "primary",
+            "fs_type": "ext4",
+            "mountpoint": "/",
+            "size": "32GiB"
+          },
+          {
+            "status": "create",
+            "type": "primary",
+            "fs_type": "ext4",
+            "mountpoint": "/home",
+            "size": "100%"
+          }
+        ]
+      }
+    ]
+  },
+  "packages": [
+  "base", "base-devel", "linux-lts", "linux-firmware", "linux-headers",
+  "nano", "git", "jq", "cifs-utils", "ca-certificates", "reflector", "pacman-contrib",
+  "openssh", "rsync", "curl", "wget", "iputils", "ethtool", "ldns", "net-tools",
+  "networkmanager", "systemd-resolvconf",
+  "hyperv", "hyperv-daemons",
+  "nftables", "iptables-nft", "fail2ban",
+  "podman", "podman-compose", "netavark", "aardvark-dns", "slirp4netns", "fuse-overlayfs",
+  "buildah", "skopeo", "podman-docker", "wireguard-tools",
+  "zip", "unzip", "p7zip",
+  "htop", "tmux", "bash-completion", "nmap", "tcpdump", "lynis"
+]
+,
+  "services": [
+    "NetworkManager",
+    "systemd-resolved",
+    "sshd",
+    "nftables",
+    "fail2ban",
+    "hyperv-daemons"
+  ],
+  "parallel_downloads": 10,
+  "profile_config": {
+    "profile": { "main": "Minimal", "details": [], "custom_settings": {} },
+    "greeter": null,
+    "gfx_driver": null
+  },
+  "auth_config": {},
+  "app_config": null,
+  "script": null,
+  "custom_commands": [
+    "ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf || true",
+    "mkdir -p /etc/NetworkManager/system-connections /etc/NetworkManager/conf.d",
+    "bash -lc 'cat >/etc/NetworkManager/conf.d/dns.conf <<EOF\\n[main]\\ndns=systemd-resolved\\nEOF'",
+    "bash -lc 'cat >/etc/NetworkManager/system-connections/txbkendvm.nmconnection <<EOF\\n[connection]\\nid=txbkendvm-static\\ntype=ethernet\\nautoconnect=true\\n\\n[ipv4]\\naddress1=10.99.64.10/24,10.99.64.1\\ndns=1.1.1.1;8.8.8.8;\\nmethod=manual\\n\\n[ipv6]\\nmethod=ignore\\nEOF'",
+    "chmod 600 /etc/NetworkManager/system-connections/txbkendvm.nmconnection",
+    "bash -lc 'cat >/etc/sysctl.d/99-txbkendvm.conf <<EOF\\nnet.ipv4.conf.all.rp_filter=2\\nnet.ipv4.conf.default.rp_filter=2\\nEOF'",
+    "bash -lc 'cat >/etc/fail2ban/jail.d/sshd.local <<EOF\\n[sshd]\\nenabled = true\\nfilter = sshd\\nbackend = systemd\\nport   = ssh\\nlogpath = %(sshd_log)s\\nmaxretry = 5\\nfindtime = 10m\\nbantime = 1h\\nignoreip = 127.0.0.1/8 ::1 10.99.64.2\\nEOF'",
+    "bash -lc 'cat >/etc/nftables.conf <<\"EOF\"\\n#!/usr/bin/env nft -f\\nflush ruleset\\n\\n# Solo expone servicios hacia el EDGE\\ndefine EDGE_IP = 10.99.64.2\\n\\n table inet filter {\\n  chains {\\n    input {\\n      type filter hook input priority 0; policy drop;\\n      iifname lo accept\\n      ct state established,related accept\\n      meta l4proto icmp accept\\n      meta l4proto ipv6-icmp accept\\n      # SSH solo desde EDGE\\n      tcp dport 22 ip saddr $EDGE_IP accept\\n      # Servicios internos (ajusta si agregas mas)\\n      tcp dport {9999,8081} ip saddr $EDGE_IP accept\\n      counter drop\\n    }\\n    forward { type filter hook forward priority 0; policy drop; }\\n    output  { type filter hook output  priority 0; policy accept; }\\n  }\\n }\\nEOF'",
+    "mkdir -p /srv/media/stash /etc/samba/creds",
+    "bash -lc 'install -m 0600 /dev/null /etc/samba/creds/stash && printf \"username=%s\\npassword=%s\\ndomain=WORKGROUP\\n\" \"stashuser\" \"C4rniceria*\" > /etc/samba/creds/stash'",
+    "bash -lc 'grep -q \"//10.99.64.1/stash\" /etc/fstab || echo \"//10.99.64.1/stash  /srv/media/stash  cifs  _netdev,vers=3.1.1,credentials=/etc/samba/creds/stash,uid=1000,gid=1000,file_mode=0664,dir_mode=0775,iocharset=utf8,nounix,noperm,cache=strict,actimeo=2,soft,x-systemd.automount,x-systemd.idle-timeout=600,nofail  0  0\" >> /etc/fstab'",
+    "systemctl enable --now systemd-resolved NetworkManager sshd nftables fail2ban hyperv-daemons || true",
+    "sed -i 's/^#*\\(PermitRootLogin\\) .*/\\1 no/' /etc/ssh/sshd_config",
+    "sed -i 's/^#*\\(PasswordAuthentication\\) .*/\\1 yes/' /etc/ssh/sshd_config",
+    "systemctl restart sshd || true"
+  ]
+}
